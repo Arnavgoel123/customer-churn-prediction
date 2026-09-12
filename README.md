@@ -1,76 +1,32 @@
 # Customer Churn Prediction
 
-An end-to-end machine learning project that predicts whether a telecom customer is likely to churn.
+An end-to-end machine learning application that predicts whether a telecom customer is likely to churn.
+
+The project covers data analysis and model development, a Flask web application and REST API, automated testing, Docker containerization, and CI/CD with GitHub Actions.
 
 ## Overview
 
-Customer churn is an important business problem for telecom companies. Identifying customers who are likely to leave can help businesses take proactive retention measures.
+Customer churn is an important business problem for telecom companies. This project uses customer demographics, services, contract information, and billing data to predict churn and identify customers who may be at risk.
 
-This project builds a supervised machine learning classification system to predict customer churn using customer demographics, service information, contract details, and billing information.
+## Machine Learning
 
-## Dataset
+The dataset contains **7,043 customer records**. After removing 11 records with missing `Total Charges`, **7,032 records** were used for modeling.
 
-The dataset contains information about 7,043 telecom customers, including:
+The ML workflow includes:
 
-- Customer demographics
-- Tenure
-- Phone and internet services
-- Online services
-- Contract type
-- Payment method
-- Monthly charges
-- Total charges
-- Churn status
+- Data cleaning and exploratory data analysis
+- Feature selection
+- 80/20 stratified train-test split
+- Numerical scaling with `StandardScaler`
+- Categorical encoding with `OneHotEncoder`
+- `ColumnTransformer` and Scikit-learn `Pipeline`
+- Model comparison and hyperparameter tuning
+- Probability threshold analysis
+- ROC-AUC and feature interpretation
 
-During data cleaning, 11 records with missing `Total Charges` values were removed, leaving **7,032 customer records** for modeling.
+### Models
 
-## Project Workflow
-
-1. Data loading
-2. Data understanding and cleaning
-3. Exploratory data analysis
-4. Feature selection
-5. Train-test split
-6. Feature preprocessing
-7. Model training
-8. Model comparison
-9. Hyperparameter tuning
-10. Threshold analysis
-11. ROC-AUC evaluation
-12. Feature interpretation
-13. Model saving and prediction
-
-## Exploratory Data Analysis
-
-Exploratory analysis revealed several patterns in customer churn:
-
-- Customers who churned had a lower average tenure than customers who remained.
-- Churned customers had higher average monthly charges.
-- Month-to-month contracts had substantially higher churn rates than one-year and two-year contracts.
-- Customers using fiber optic internet had a higher churn rate than customers using DSL or no internet service.
-
-These observations represent associations in the dataset and do not imply causation.
-
-## Data Preprocessing
-
-The following preprocessing techniques were used:
-
-- Numerical features were standardized using `StandardScaler`.
-- Categorical features were converted using `OneHotEncoder`.
-- A `ColumnTransformer` was used to apply the appropriate transformation to each feature type.
-- Preprocessing and modeling were combined using a Scikit-learn `Pipeline`.
-- The dataset was divided into training and testing sets using an 80/20 split.
-- Stratification was used to preserve the churn class distribution.
-
-## Models
-
-Three classification algorithms were evaluated:
-
-- Logistic Regression
-- Random Forest
-- Gradient Boosting
-
-### Baseline Results
+Three classification models were evaluated:
 
 | Model | Accuracy | Churn F1 |
 |---|---:|---:|
@@ -78,129 +34,179 @@ Three classification algorithms were evaluated:
 | Random Forest | 79.03% | 56% |
 | Gradient Boosting | 79.89% | 59% |
 
-Logistic Regression achieved the strongest baseline performance and was selected for further tuning.
+Logistic Regression achieved the strongest baseline performance and was selected as the final model.
 
-## Hyperparameter Tuning
-
-`GridSearchCV` with 5-fold cross-validation was used to tune Logistic Regression and Random Forest.
-
-The models were optimized using the F1-score of the churn class (`Yes`) rather than accuracy alone.
-
-The best Logistic Regression hyperparameter was:
+`GridSearchCV` with 5-fold cross-validation was used for tuning. The best Logistic Regression configuration used:
 
 ```text
 C = 10
 ```
 
-The tuned Logistic Regression model achieved approximately:
+The final model achieved:
 
 - **Accuracy:** 80.45%
 - **Churn Precision:** 64%
 - **Churn Recall:** 60%
-- **Churn F1-score:** 62%
+- **Churn F1:** 62%
 - **ROC-AUC:** 0.843
 
-## Threshold Analysis
+### Prediction Threshold
 
-The default classification threshold for Logistic Regression is 0.5.
+The default classification threshold of 0.5 was compared with lower thresholds.
 
-Since identifying potential churners is important for customer retention, different probability thresholds were evaluated.
+A threshold of **0.4** was selected for the retention use case because it increases churn recall from approximately **60% to 70%**, allowing more potential churners to be identified at the cost of lower precision.
 
-At the default threshold of **0.5**, churn recall was approximately **60%**.
+The complete preprocessing and model pipeline is saved using Joblib.
 
-Lowering the threshold to **0.4** increased churn recall to approximately **70%**, allowing the model to identify more customers who may be at risk of leaving.
+## Web Application
 
-This improvement comes at the cost of lower precision, meaning more non-churning customers may also be classified as at risk.
+The trained model is integrated into a Flask web application where users can enter customer information and receive:
 
-The appropriate threshold therefore depends on the business cost of missing a churner compared with the cost of unnecessary retention efforts.
+- Churn probability
+- Churn prediction
+- Risk level
 
-## ROC-AUC
+Customers are classified as either:
 
-The final Logistic Regression model achieved a:
+- `At Risk`
+- `Lower Risk`
 
-**ROC-AUC score of 0.843**
+based on the 0.4 probability threshold.
 
-This indicates that the model has good ability to distinguish between customers who churn and customers who remain across different classification thresholds.
+## REST API
 
-## Feature Interpretation
+The application exposes a REST API for programmatic predictions.
 
-Logistic Regression coefficients were examined to understand which features were associated with higher or lower predicted churn probability.
+### `POST /predict`
 
-Some features with stronger positive associations with churn included:
+Accepts customer information as JSON and returns the predicted churn probability, prediction, and risk level.
 
-- Fiber optic internet service
-- Streaming TV
-- Streaming Movies
-- Multiple lines
-- Electronic check payment
+Example response:
 
-Features with stronger negative associations included:
-
-- Longer customer tenure
-- Two-year contracts
-- Having dependents
-- One-year contracts
-
-Model coefficients represent associations while controlling for other features in the model and should not be interpreted as proof of causation.
-
-## Final Model
-
-The final model is a tuned **Logistic Regression** classifier combined with the complete preprocessing pipeline.
-
-For a customer-retention use case, a probability threshold of **0.4** is used to identify customers who may be at risk of churn.
-
-The complete preprocessing and prediction pipeline was saved using Joblib so that new predictions can be generated without retraining the model.
-
-## Example Prediction
-
-The trained model was tested using a new customer record.
-
-Example output:
-
-```text
-Churn Probability: 80.7%
-Customer Risk: At Risk
+```json
+{
+  "churn_probability": 85.94,
+  "prediction": "Yes",
+  "risk": "At Risk"
+}
 ```
 
-This demonstrates how the saved model can be used to estimate churn risk for new customers.
+### `GET /health`
+
+Returns the application health status:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+The API also validates required fields and numeric inputs.
+
+## Testing
+
+The API is tested using `pytest`.
+
+The test suite covers:
+
+- Health-check endpoint
+- Valid prediction requests
+- Missing required fields
+- Invalid numeric input
+
+Run tests with:
+
+```bash
+pytest
+```
+
+## Docker
+
+The application is containerized using Docker.
+
+Build the image:
+
+```bash
+docker build -t customer-churn-api .
+```
+
+Run the container:
+
+```bash
+docker run -p 5000:5000 customer-churn-api
+```
+
+The application is then available at:
+
+```text
+http://localhost:5000
+```
+
+## CI/CD
+
+GitHub Actions automatically tests and packages the application.
+
+```text
+Git Push / Pull Request
+          ↓
+   Install Dependencies
+          ↓
+       Run pytest
+          ↓
+    Build Docker Image
+          ↓
+       Push to GHCR
+```
+
+Docker image publishing occurs only after successful tests on pushes to the `main` branch.
+
+The image is published to GitHub Container Registry:
+
+```text
+ghcr.io/arnavgoel123/customer-churn-prediction:latest
+```
 
 ## Project Structure
 
 ```text
 customer-churn-prediction/
 │
+├── .github/
+│   └── workflows/
+│       └── tests.yml
 ├── models/
 │   └── customer_churn_model.pkl
-│
 ├── notebooks/
 │   └── customer_churn.ipynb
-│
+├── templates/
+│   └── index.html
+├── tests/
+│   ├── __init__.py
+│   └── test_api.py
+├── .dockerignore
 ├── .gitignore
+├── app.py
+├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
-## Technologies Used
+## Technologies
 
-- Python
-- Pandas
-- NumPy
-- Scikit-learn
-- Matplotlib
-- Jupyter Notebook / Google Colab
-- Joblib
-- Git & GitHub
+- **Machine Learning:** Python, Pandas, NumPy, Scikit-learn, Matplotlib, Joblib
+- **Backend:** Flask, REST API
+- **Testing:** Pytest
+- **DevOps:** Docker, GitHub Actions, GitHub Container Registry
+- **Development:** Jupyter Notebook / Google Colab, Git & GitHub
 
 ## Future Improvements
 
-Possible improvements to the project include:
-
-- Deploying the trained model as a web application
-- Experimenting with additional classification algorithms
-- Performing additional feature engineering
-- Selecting the classification threshold using explicit business costs
-- Adding model monitoring for a deployed system
+- Deploy the Dockerized application to a cloud platform
+- Add model monitoring and periodic retraining
+- Add authentication and rate limiting to the API
+- Improve feature engineering and model performance
+- Incorporate business costs into threshold selection
 
 ## Key Takeaway
 
-The project demonstrates an end-to-end machine learning workflow, from raw customer data and exploratory analysis through preprocessing, model comparison, hyperparameter tuning, evaluation, interpretation, and reusable churn prediction.
+This project demonstrates an end-to-end **ML + software engineering + DevOps workflow**, from data analysis and model development to a production-style Flask API, automated testing, Docker containerization, and CI/CD with GitHub Actions.
